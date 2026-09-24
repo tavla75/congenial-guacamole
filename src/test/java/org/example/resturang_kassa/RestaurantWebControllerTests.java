@@ -22,7 +22,19 @@ class RestaurantWebControllerTests {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
                 .andExpect(content().contentTypeCompatibleWith("text/html"))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Välkommen")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Fortsätt")));
+    }
+
+    @Test
+    void productGridIsAvailable() throws Exception {
+        mockMvc.perform(get("/grid"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("text/html"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Lägg till produkt")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Administrera priser")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Pris för")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("restaurant-prices")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("restaurant-products")));
     }
 
     @Test
