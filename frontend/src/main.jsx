@@ -24,6 +24,7 @@ function App() {
   const [order, setOrder] = useState([]);
   const [columns, setColumns] = useState(4);
   const [message, setMessage] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
   const total = useMemo(
     () => order.reduce((sum, item) => sum + item.price, 0),
     [order]
@@ -120,11 +121,51 @@ function App() {
   return (
     <main className="app">
       <header>
-        <h1>Produktgrid</h1>
+        <div className="header-title">
+          <button
+            className="menu-button"
+            aria-label="Öppna meny"
+            aria-expanded={menuOpen}
+            onClick={() => setMenuOpen(current => !current)}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+          <h1>{page === 'admin' ? 'Admin' : 'Produktgrid'}</h1>
+        </div>
         <button className="secondary" onClick={() => setPage('welcome')}>
           Tillbaka
         </button>
       </header>
+      {menuOpen && (
+        <nav className="menu" aria-label="Huvudmeny">
+          <button
+            onClick={() => {
+              setPage('grid');
+              setMenuOpen(false);
+            }}
+          >
+            Beställning
+          </button>
+          <button
+            onClick={() => {
+              setPage('admin');
+              setMenuOpen(false);
+            }}
+          >
+            Admin
+          </button>
+          <button
+            onClick={() => {
+              setPage('welcome');
+              setMenuOpen(false);
+            }}
+          >
+            Startsida
+          </button>
+        </nav>
+      )}
       <div className="toolbar">
         <label>
           Kolumner
@@ -133,7 +174,6 @@ function App() {
           </select>
         </label>
         <button onClick={addProduct}>Lägg till produkt</button>
-        <button className="secondary" onClick={() => setPage('admin')}>Admin</button>
       </div>
       {page === 'admin' ? (
         <section className="admin">
