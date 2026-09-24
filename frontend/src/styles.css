@@ -1,0 +1,135 @@
+:root {
+  color: #1f2933;
+  font-family: Arial, sans-serif;
+}
+
+body {
+  background: #f4f6f8;
+  margin: 0;
+  padding: 2rem;
+}
+
+button, input, select {
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font: inherit;
+  padding: 0.6rem;
+}
+
+button {
+  background: #176b87;
+  color: white;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.welcome, .app {
+  background: white;
+  border-radius: 12px;
+  margin: auto;
+  max-width: 1100px;
+  padding: 2rem;
+}
+
+.welcome {
+  margin-top: 8rem;
+  max-width: 600px;
+  text-align: center;
+}
+
+h1, h2 {
+  color: #176b87;
+}
+
+header, .toolbar, .admin-row, .order-row {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+}
+
+header, .toolbar {
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.toolbar label {
+  align-items: center;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.secondary {
+  background: white;
+  color: #176b87;
+}
+
+.workspace {
+  align-items: start;
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: minmax(0, 1fr) 320px;
+}
+
+.product-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.product {
+  background: #176b87;
+  border-radius: 8px;
+  color: white;
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+}
+
+.product h2 {
+  color: white;
+  margin: 0;
+}
+
+.product button {
+  background: white;
+  color: #176b87;
+}
+
+.order, .admin {
+  background: #f8fafc;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.order-row, .admin-row {
+  border-bottom: 1px solid #e2e8f0;
+  justify-content: space-between;
+  padding: 0.7rem 0;
+}
+
+.order-row input {
+  max-width: 90px;
+}
+
+.admin-row input:first-child {
+  flex: 1;
+}
+
+.message {
+  color: #176b87;
+  font-weight: bold;
+  margin-top: 1rem;
+}
+
+@media (max-width: 800px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}

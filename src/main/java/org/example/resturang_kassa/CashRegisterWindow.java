@@ -5,6 +5,7 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
@@ -182,8 +183,39 @@ final class CashRegisterWindow {
             JPanel footer = new JPanel(new BorderLayout(4, 4));
             footer.add(totalLabel, BorderLayout.NORTH);
             footer.add(removeButton, BorderLayout.SOUTH);
+
+            JButton payButton = new JButton("Betala");
+            payButton.setEnabled(false);
+            payButton.addActionListener(event -> {
+                int result = JOptionPane.showConfirmDialog(
+                        this,
+                        String.format(Locale.forLanguageTag("sv-SE"),
+                                "Betala %.2f kr?", total),
+                        "Bekräfta betalning",
+                        JOptionPane.YES_NO_OPTION
+                );
+                if (result == JOptionPane.YES_OPTION) {
+                    orderItems.clear();
+                    total = 0;
+                    updateTotal();
+                    payButton.setEnabled(false);
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "Betalningen är klar.",
+                            "Betalning",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+                }
+            });
+
+            footer.add(payButton, BorderLayout.CENTER);
             add(footer, BorderLayout.SOUTH);
+
+            removeButton.addActionListener(event -> payButton.setEnabled(!orderItems.isEmpty()));
+            this.payButton = payButton;
         }
+
+        private final JButton payButton;
 
         private void addItem(String name, double price) {
             String itemName = name.isBlank() ? "Namnlös produkt" : name;
@@ -191,6 +223,7 @@ final class CashRegisterWindow {
                     "%s - %.2f kr", itemName, price));
             total += price;
             updateTotal();
+            payButton.setEnabled(true);
         }
 
         private void updateTotal() {
