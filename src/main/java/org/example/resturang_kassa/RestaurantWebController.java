@@ -155,6 +155,12 @@ public class RestaurantWebController {
                         .order-item button { padding: 0.25rem 0.4rem; }
                         .order-total { font-weight: bold; }
                         .order-button { margin-top: 0.8rem; width: 100%; }
+                        .pay-button { margin-top: 1rem; width: 100%; }
+                        .payment-message {
+                            display: block;
+                            font-size: 0.9rem;
+                            margin-top: 0.7rem;
+                        }
                         .admin-panel {
                             background: white;
                             border-radius: 10px;
@@ -226,6 +232,10 @@ public class RestaurantWebController {
                                     <li>Inga produkter valda</li>
                                 </ul>
                                 <div class="order-total" id="order-total">Totalt: 0,00 kr</div>
+                                <button class="primary pay-button" id="pay-button"
+                                        type="button" disabled>Betala</button>
+                                <small class="payment-message" id="payment-message"
+                                       role="status"></small>
                             </aside>
                         </div>
                     </main>
@@ -234,6 +244,8 @@ public class RestaurantWebController {
                         const columns = document.getElementById('columns');
                         const orderList = document.getElementById('order-list');
                         const orderTotal = document.getElementById('order-total');
+                        const payButton = document.getElementById('pay-button');
+                        const paymentMessage = document.getElementById('payment-message');
                         const savedProducts = JSON.parse(localStorage.getItem('restaurant-products') || 'null');
                         const products = savedProducts || ['Hamburgare', 'Pizza', 'Sallad', 'Dryck'];
                         const savedPrices = JSON.parse(localStorage.getItem('restaurant-prices') || 'null');
@@ -333,6 +345,7 @@ public class RestaurantWebController {
 
                         function renderOrder() {
                             orderList.replaceChildren();
+                            payButton.disabled = order.length === 0;
                             if (order.length === 0) {
                                 const empty = document.createElement('li');
                                 empty.textContent = 'Inga produkter valda';
@@ -375,6 +388,64 @@ public class RestaurantWebController {
                             orderTotal.textContent = `Totalt: ${total.toFixed(2).replace('.', ',')} kr`;
                         }
 
+                        async function payForOrder() {
+                            if (order.length === 0) {
+                                return;
+                            }
+
+                            payButton.disabled = true;
+                            paymentMessage.textContent = 'Betalning pågår...';
+
+                            try {
+                                const orderResponse = await fetch('/api/orders', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        items: order.map(item => ({
+                                            productName: item.name,
+                                            quantity: 1,
+                                            unitPrice: item.price
+                                        }))
+                                    })
+                                });
+
+                                if (!orderResponse.ok) {
+                                    throw new Error('Kunde inte skapa ordern');
+                                }
+
+                                const savedOrder = await orderResponse.json();
+                                const paymentResponse = await fetch('/api/payments', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ orderId: savedOrder.id })
+                                });
+
+                                if (!paymentResponse.ok) {
+                                    throw new Error('Kunde inte starta betalningen');
+                                }
+
+                                const payment = await paymentResponse.json();
+                                const completedResponse = await fetch(
+                                    `/api/payments/${payment.paymentReference}/complete-test-payment`,
+                                    { method: 'POST' }
+                                );
+
+                                if (!completedResponse.ok) {
+                                    throw new Error('Betalningen kunde inte slutföras');
+                                }
+
+                                const completedPayment = await completedResponse.json();
+                                paymentMessage.textContent =
+                                    `Betalning klar: ${completedPayment.amount
+                                        .toFixed(2).replace('.', ',')} kr`;
+                                order.length = 0;
+                                renderOrder();
+                            } catch (error) {
+                                paymentMessage.textContent = error.message;
+                                payButton.disabled = false;
+                            }
+                        }
+
                         columns.addEventListener('change', render);
                         document.getElementById('admin-button').addEventListener('click', () => {
                             const adminPanel = document.getElementById('admin-panel');
@@ -388,6 +459,7 @@ public class RestaurantWebController {
                             saveEditedPrices();
                             document.getElementById('admin-panel').hidden = true;
                         });
+                        payButton.addEventListener('click', payForOrder);
                         document.getElementById('add-product').addEventListener('click', () => {
                             products.push('Ny produkt');
                             prices.push(0);

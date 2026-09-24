@@ -33,6 +33,7 @@ class RestaurantWebControllerTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Lägg till produkt")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Administrera priser")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Pris för")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Betala")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("restaurant-prices")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("restaurant-products")));
     }
