@@ -40,6 +40,7 @@ public class ProductController {
                 .orElseThrow(() -> new IllegalArgumentException("Product not found: " + id));
         existing.setName(product.getName());
         existing.setPrice(product.getPrice());
+        existing.setCategory(product.getCategory());
         return products.save(existing);
     }
 

@@ -23,8 +23,16 @@ function App() {
   const [products, setProducts] = useState([]);
   const [order, setOrder] = useState([]);
   const [columns, setColumns] = useState(4);
+  const [selectedCategory, setSelectedCategory] = useState('Mat');
   const [message, setMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const categories = useMemo(
+    () => [...new Set(['Mat', 'Dryck', ...products.map(product => product.category || 'Mat')])],
+    [products]
+  );
+  const visibleProducts = products.filter(
+    product => (product.category || 'Mat') === selectedCategory
+  );
   const total = useMemo(
     () => order.reduce((sum, item) => sum + item.price, 0),
     [order]
@@ -57,7 +65,8 @@ function App() {
         method: 'PUT',
         body: JSON.stringify({
           name: product.name,
-          price: Number(product.price)
+          price: Number(product.price),
+          category: product.category || 'Mat'
         })
       });
       setProducts(current => current.map(item =>
@@ -73,9 +82,10 @@ function App() {
     try {
       const product = await api('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Ny produkt', price: 0 })
+        body: JSON.stringify({ name: 'Ny produkt', price: 0, category: 'Mat' })
       });
       setProducts(current => [...current, product]);
+      setSelectedCategory('Mat');
     } catch (error) {
       setMessage(error.message);
     }
@@ -181,6 +191,12 @@ function App() {
           {products.map(product => (
             <div className="admin-row" key={product.id}>
               <input
+                aria-label={`Kategori för ${product.name}`}
+                value={product.category || 'Mat'}
+                onChange={event => updateProduct(product.id, 'category', event.target.value)}
+                placeholder="Kategori"
+              />
+              <input
                 value={product.name}
                 onChange={event => updateProduct(product.id, 'name', event.target.value)}
               />
@@ -192,24 +208,52 @@ function App() {
                 onChange={event => updateProduct(product.id, 'price', event.target.value)}
               />
               <button onClick={() => saveProduct(product)}>Spara</button>
+              <button
+                className="danger"
+                onClick={async () => {
+                  if (!window.confirm(`Ta bort produkten "${product.name}"?`)) return;
+                  try {
+                    await api(`/api/products/${product.id}`, { method: 'DELETE' });
+                    setProducts(current => current.filter(item => item.id !== product.id));
+                    setMessage('Produkten togs bort.');
+                  } catch (error) {
+                    setMessage(error.message);
+                  }
+                }}
+              >
+                Ta bort
+              </button>
             </div>
           ))}
           <button className="secondary" onClick={() => setPage('grid')}>Till beställning</button>
         </section>
       ) : (
-        <div className="workspace">
-          <section
-            className="product-grid"
-            style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
-          >
-            {products.map(product => (
-              <article className="product" key={product.id}>
-                <h2>{product.name}</h2>
-                <strong>{currency.format(product.price)}</strong>
-                <button onClick={() => addToOrder(product)}>Beställ</button>
-              </article>
+        <>
+          <nav className="category-tabs" aria-label="Produktkategorier">
+            {categories.map(category => (
+              <button
+                className={category === selectedCategory ? 'active' : 'secondary'}
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
             ))}
-          </section>
+          </nav>
+          <div className="workspace">
+            <section
+              className="product-grid"
+              style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
+            >
+              {visibleProducts.map(product => (
+                <article className="product" key={product.id}>
+                  <h2>{product.name}</h2>
+                  <strong>{currency.format(product.price)}</strong>
+                  <button onClick={() => addToOrder(product)}>Beställ</button>
+                </article>
+              ))}
+              {!visibleProducts.length && <p>Inga produkter i denna kategori.</p>}
+            </section>
           <aside className="order">
             <h2>Aktuell beställning</h2>
             {order.map((item, index) => (
@@ -235,7 +279,8 @@ function App() {
             <strong>Totalt: {currency.format(total)}</strong>
             <button disabled={!order.length} onClick={pay}>Betala</button>
           </aside>
-        </div>
+          </div>
+        </>
       )}
       {message && <p className="message">{message}</p>}
     </main>

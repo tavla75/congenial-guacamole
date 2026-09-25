@@ -14,10 +14,10 @@ public class ProductDataInitializer {
         return args -> {
             if (products.count() == 0) {
                 products.saveAll(java.util.List.of(
-                        new Product("Hamburgare", new BigDecimal("99.00")),
-                        new Product("Pizza", new BigDecimal("119.00")),
-                        new Product("Sallad", new BigDecimal("79.00")),
-                        new Product("Dryck", new BigDecimal("25.00"))
+                        new Product("Hamburgare", new BigDecimal("99.00"), "Mat"),
+                        new Product("Pizza", new BigDecimal("119.00"), "Mat"),
+                        new Product("Sallad", new BigDecimal("79.00"), "Mat"),
+                        new Product("Dryck", new BigDecimal("25.00"), "Dryck")
                 ));
             }
         };

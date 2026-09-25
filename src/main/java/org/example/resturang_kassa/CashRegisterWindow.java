@@ -12,12 +12,16 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 final class CashRegisterWindow {
 
@@ -68,14 +72,9 @@ final class CashRegisterWindow {
         gridPage.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
 
         OrderPanel order = new OrderPanel(orderRepository, paymentService);
-        JPanel products = new JPanel(new GridLayout(0, 4, 12, 12));
+        JTabbedPane categoryTabs = new JTabbedPane();
         Runnable refreshProducts = () -> {
-            products.removeAll();
-            for (Product product : productRepository.findAll()) {
-                addProduct(products, product, order);
-            }
-            products.revalidate();
-            products.repaint();
+            refreshCategoryTabs(categoryTabs, productRepository.findAll(), order);
         };
         refreshProducts.run();
 
@@ -83,7 +82,7 @@ final class CashRegisterWindow {
         JLabel title = new JLabel("Beställ produkter");
         title.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
         orderPage.add(title, BorderLayout.NORTH);
-        orderPage.add(products, BorderLayout.CENTER);
+        orderPage.add(categoryTabs, BorderLayout.CENTER);
         orderPage.add(order, BorderLayout.EAST);
 
         JTabbedPane tabs = new JTabbedPane();
@@ -92,6 +91,26 @@ final class CashRegisterWindow {
         gridPage.add(tabs, BorderLayout.CENTER);
 
         return gridPage;
+    }
+
+    private static void refreshCategoryTabs(
+            JTabbedPane tabs, List<Product> products, OrderPanel order) {
+        tabs.removeAll();
+        Map<String, List<Product>> categories = new LinkedHashMap<>();
+        categories.put("Mat", new ArrayList<>());
+        categories.put("Dryck", new ArrayList<>());
+        for (Product product : products) {
+            categories.computeIfAbsent(product.getCategory(), key -> new ArrayList<>())
+                    .add(product);
+        }
+
+        categories.forEach((category, categoryProducts) -> {
+            JPanel productGrid = new JPanel(new GridLayout(0, 4, 12, 12));
+            for (Product product : categoryProducts) {
+                addProduct(productGrid, product, order);
+            }
+            tabs.addTab(category, productGrid);
+        });
     }
 
     private static JPanel createAdminPage(
@@ -112,7 +131,7 @@ final class CashRegisterWindow {
         JButton addProductButton = new JButton("Lägg till produkt");
         addProductButton.addActionListener(event -> {
             try {
-                productRepository.save(new Product("Ny produkt", BigDecimal.ZERO));
+                productRepository.save(new Product("Ny produkt", BigDecimal.ZERO, "Mat"));
                 refreshProducts.run();
                 productEditor.removeAll();
                 for (Product product : productRepository.findAll()) {
@@ -131,7 +150,8 @@ final class CashRegisterWindow {
 
     private static JPanel createProductEditorRow(
             Product product, ProductRepository repository, Runnable refreshProducts) {
-        JPanel row = new JPanel(new GridLayout(1, 3, 8, 8));
+        JPanel row = new JPanel(new GridLayout(1, 5, 8, 8));
+        JTextField categoryField = new JTextField(product.getCategory());
         JTextField nameField = new JTextField(product.getName());
         JTextField priceField = new JTextField(product.getPrice().toPlainString());
         JButton saveButton = new JButton("Spara");
@@ -141,6 +161,7 @@ final class CashRegisterWindow {
                 if (price.signum() < 0 || nameField.getText().isBlank()) {
                     throw new IllegalArgumentException("Ange ett produktnamn och ett pris som inte är negativt.");
                 }
+                product.setCategory(categoryField.getText());
                 product.setName(nameField.getText().trim());
                 product.setPrice(price);
                 repository.save(product);
@@ -150,9 +171,33 @@ final class CashRegisterWindow {
                 showError(row, exception);
             }
         });
+        JButton deleteButton = new JButton("Ta bort");
+        deleteButton.addActionListener(event -> {
+            int choice = JOptionPane.showConfirmDialog(
+                    row,
+                    "Ta bort produkten \"" + product.getName() + "\"?",
+                    "Bekräfta borttagning",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                try {
+                    repository.delete(product);
+                    Container editor = row.getParent();
+                    editor.remove(row);
+                    editor.revalidate();
+                    editor.repaint();
+                    refreshProducts.run();
+                } catch (RuntimeException exception) {
+                    showError(row, exception);
+                }
+            }
+        });
+        row.add(categoryField);
         row.add(nameField);
         row.add(priceField);
         row.add(saveButton);
+        row.add(deleteButton);
         return row;
     }
 
@@ -215,18 +260,7 @@ final class CashRegisterWindow {
             footer.add(totalLabel, BorderLayout.NORTH);
             footer.add(removeButton, BorderLayout.SOUTH);
 
-            payButton.addActionListener(event -> {
-                int result = JOptionPane.showConfirmDialog(
-                        this,
-                        String.format(Locale.forLanguageTag("sv-SE"),
-                                "Betala %s kr?", calculateTotal()),
-                        "Bekräfta betalning",
-                        JOptionPane.YES_NO_OPTION
-                );
-                if (result == JOptionPane.YES_OPTION) {
-                    completePayment();
-                }
-            });
+            payButton.addActionListener(event -> choosePaymentMethod());
 
             footer.add(payButton, BorderLayout.CENTER);
             add(footer, BorderLayout.SOUTH);
@@ -255,7 +289,61 @@ final class CashRegisterWindow {
             totalLabel.setText("Totalt: " + calculateTotal().toPlainString() + " kr");
         }
 
-        private void completePayment() {
+        private void choosePaymentMethod() {
+            String[] options = {"Kort", "Kontant", "Avbryt"};
+            int choice = JOptionPane.showOptionDialog(
+                    this,
+                    "Välj betalningssätt för " + calculateTotal().toPlainString() + " kr",
+                    "Betala",
+                    JOptionPane.DEFAULT_OPTION,
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    options,
+                    options[0]
+            );
+
+            if (choice == 0) {
+                completePayment("Kort", BigDecimal.ZERO);
+            } else if (choice == 1) {
+                takeCashPayment();
+            }
+        }
+
+        private void takeCashPayment() {
+            String enteredAmount = JOptionPane.showInputDialog(
+                    this,
+                    "Mottaget belopp (kr):"
+            );
+            if (enteredAmount == null) {
+                return;
+            }
+
+            try {
+                BigDecimal received = new BigDecimal(
+                        enteredAmount.trim().replace(',', '.'));
+                BigDecimal total = calculateTotal();
+                if (received.signum() < 0 || received.compareTo(total) < 0) {
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "Det mottagna beloppet måste vara minst "
+                                    + total.toPlainString() + " kr.",
+                            "För lågt belopp",
+                            JOptionPane.WARNING_MESSAGE
+                    );
+                    return;
+                }
+                completePayment("Kontant", received.subtract(total));
+            } catch (NumberFormatException exception) {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Skriv in ett giltigt belopp.",
+                        "Ogiltigt belopp",
+                        JOptionPane.WARNING_MESSAGE
+                );
+            }
+        }
+
+        private void completePayment(String paymentMethod, BigDecimal change) {
             try {
                 RestaurantOrder order = new RestaurantOrder();
                 BigDecimal total = calculateTotal();
@@ -272,9 +360,15 @@ final class CashRegisterWindow {
                 orderItems.clear();
                 updateTotal();
                 payButton.setEnabled(false);
+
+                String message = "Betalning klar med " + paymentMethod + ": "
+                        + completedPayment.amount().toPlainString() + " kr";
+                if ("Kontant".equals(paymentMethod)) {
+                    message += "\nVäxel: " + change.toPlainString() + " kr";
+                }
                 JOptionPane.showMessageDialog(
                         this,
-                        "Betalning klar: " + completedPayment.amount().toPlainString() + " kr",
+                        message,
                         "Betalning",
                         JOptionPane.INFORMATION_MESSAGE
                 );
