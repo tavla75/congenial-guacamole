@@ -141,7 +141,7 @@ final class CashRegisterWindow {
             int savedCount = 0;
             List<String> failedProducts = new ArrayList<>();
             for (ProductEditorRow row : List.copyOf(editorRows)) {
-                if (row.save(false)) {
+                if (row.save()) {
                     savedCount++;
                 } else {
                     failedProducts.add(row.productName());
@@ -204,7 +204,7 @@ final class CashRegisterWindow {
                 ProductRepository repository,
                 Runnable refreshProducts,
                 java.util.function.Consumer<ProductEditorRow> removeFromEditor) {
-            super(new GridLayout(1, 5, 8, 8));
+            super(new GridLayout(1, 4, 8, 8));
             this.product = product;
             this.repository = repository;
             this.refreshProducts = refreshProducts;
@@ -213,19 +213,16 @@ final class CashRegisterWindow {
             nameField = new JTextField(product.getName());
             priceField = new JTextField(product.getPrice().toPlainString());
 
-            JButton saveButton = new JButton("Spara");
-            saveButton.addActionListener(event -> save(true));
             JButton deleteButton = new JButton("Ta bort");
             deleteButton.addActionListener(event -> delete());
 
             add(categoryField);
             add(nameField);
             add(priceField);
-            add(saveButton);
             add(deleteButton);
         }
 
-        private boolean save(boolean showSuccess) {
+        private boolean save() {
             try {
                 BigDecimal price = new BigDecimal(priceField.getText().trim().replace(',', '.'));
                 if (price.signum() < 0 || nameField.getText().isBlank()
@@ -237,13 +234,8 @@ final class CashRegisterWindow {
                 product.setName(nameField.getText().trim());
                 product.setPrice(price);
                 repository.save(product);
-                refreshProducts.run();
-                if (showSuccess) {
-                    JOptionPane.showMessageDialog(this, "Produkten sparades.");
-                }
                 return true;
             } catch (RuntimeException exception) {
-                showError(this, exception);
                 return false;
             }
         }

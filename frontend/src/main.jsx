@@ -60,25 +60,6 @@ function App() {
     ));
   }
 
-  async function saveProduct(product) {
-    try {
-      const saved = await api(`/api/products/${product.id}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          name: product.name,
-          price: Number(product.price),
-          category: product.category || 'Mat'
-        })
-      });
-      setProducts(current => current.map(item =>
-        item.id === saved.id ? saved : item
-      ));
-      setMessage('Produkt sparad.');
-    } catch (error) {
-      setMessage(error.message);
-    }
-  }
-
   async function saveAllProducts() {
     setSavingAll(true);
     setMessage('');
@@ -250,7 +231,6 @@ function App() {
                 value={product.price}
                 onChange={event => updateProduct(product.id, 'price', event.target.value)}
               />
-              <button onClick={() => saveProduct(product)}>Spara</button>
               <button
                 className="danger"
                 onClick={async () => {
