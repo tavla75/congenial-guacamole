@@ -26,6 +26,7 @@ function App() {
   const [selectedCategory, setSelectedCategory] = useState('Mat');
   const [message, setMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [savingAll, setSavingAll] = useState(false);
   const categories = useMemo(
     () => [...new Set(['Mat', 'Dryck', ...products.map(product => product.category || 'Mat')])],
     [products]
@@ -76,6 +77,43 @@ function App() {
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  async function saveAllProducts() {
+    setSavingAll(true);
+    setMessage('');
+    const savedProducts = [];
+    const failedProducts = [];
+
+    for (const product of products) {
+      try {
+        const saved = await api(`/api/products/${product.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: product.name,
+            price: Number(product.price),
+            category: product.category || 'Mat'
+          })
+        });
+        savedProducts.push(saved);
+      } catch {
+        failedProducts.push(product.name || `Produkt ${product.id}`);
+      }
+    }
+
+    if (savedProducts.length > 0) {
+      const savedById = new Map(savedProducts.map(product => [product.id, product]));
+      setProducts(current => current.map(product => savedById.get(product.id) || product));
+    }
+
+    if (failedProducts.length > 0) {
+      setMessage(
+        `Sparade ${savedProducts.length} av ${products.length}. Kunde inte spara: ${failedProducts.join(', ')}.`
+      );
+    } else {
+      setMessage(`Alla ${savedProducts.length} produkter sparades.`);
+    }
+    setSavingAll(false);
   }
 
   async function addProduct() {
@@ -187,7 +225,12 @@ function App() {
       </div>
       {page === 'admin' ? (
         <section className="admin">
-          <h2>Administrera priser och produkter</h2>
+          <div className="admin-header">
+            <h2>Administrera priser och produkter</h2>
+            <button onClick={saveAllProducts} disabled={savingAll || products.length === 0}>
+              {savingAll ? 'Sparar...' : 'Spara alla'}
+            </button>
+          </div>
           {products.map(product => (
             <div className="admin-row" key={product.id}>
               <input

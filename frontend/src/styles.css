@@ -162,6 +162,17 @@ header, .toolbar {
   padding: 1rem;
 }
 
+.admin-header {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.admin-header h2 {
+  margin-top: 0;
+}
+
 .order-row, .admin-row {
   border-bottom: 1px solid #e2e8f0;
   justify-content: space-between;
