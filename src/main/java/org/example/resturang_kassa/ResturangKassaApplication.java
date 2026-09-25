@@ -2,6 +2,7 @@ package org.example.resturang_kassa;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import java.awt.GraphicsEnvironment;
 import javax.swing.SwingUtilities;
@@ -11,14 +12,19 @@ public class ResturangKassaApplication {
 
     public static void main(String[] args) {
         System.setProperty("java.awt.headless", "false");
-        SpringApplication.run(ResturangKassaApplication.class, args);
+        ConfigurableApplicationContext context =
+                SpringApplication.run(ResturangKassaApplication.class, args);
 
         if (GraphicsEnvironment.isHeadless()) {
             System.err.println("Cannot open the restaurant cash register window in headless mode.");
             return;
         }
 
-        SwingUtilities.invokeLater(CashRegisterWindow::showWindow);
+        SwingUtilities.invokeLater(() -> CashRegisterWindow.showWindow(
+                context.getBean(ProductRepository.class),
+                context.getBean(RestaurantOrderRepository.class),
+                context.getBean(PaymentService.class)
+        ));
     }
 
 }
