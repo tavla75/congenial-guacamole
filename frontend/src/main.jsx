@@ -302,17 +302,7 @@ function App() {
             {order.map((item, index) => (
               <div className="order-row" key={`${item.name}-${index}`}>
                 <span>{item.name}</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={item.price}
-                  onChange={event => setOrder(current => current.map((entry, itemIndex) =>
-                    itemIndex === index
-                      ? { ...entry, price: Number(event.target.value) }
-                      : entry
-                  ))}
-                />
+                <span>{currency.format(item.price)}</span>
                 <button onClick={() => setOrder(current => current.filter((_, itemIndex) => itemIndex !== index))}>
                   Ta bort
                 </button>

@@ -12,7 +12,6 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
@@ -122,59 +121,141 @@ final class CashRegisterWindow {
         heading.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
         adminPage.add(heading, BorderLayout.NORTH);
 
+        List<ProductEditorRow> editorRows = new ArrayList<>();
         JPanel productEditor = new JPanel(new GridLayout(0, 1, 8, 8));
         for (Product product : productRepository.findAll()) {
-            productEditor.add(createProductEditorRow(product, productRepository, refreshProducts));
+            ProductEditorRow row = new ProductEditorRow(
+                    product, productRepository, refreshProducts, deletedRow -> {
+                        editorRows.remove(deletedRow);
+                        productEditor.remove(deletedRow);
+                        productEditor.revalidate();
+                        productEditor.repaint();
+                    });
+            editorRows.add(row);
+            productEditor.add(row);
         }
         adminPage.add(productEditor, BorderLayout.CENTER);
+
+        JButton saveAllButton = new JButton("Spara alla");
+        saveAllButton.addActionListener(event -> {
+            int savedCount = 0;
+            List<String> failedProducts = new ArrayList<>();
+            for (ProductEditorRow row : List.copyOf(editorRows)) {
+                if (row.save(false)) {
+                    savedCount++;
+                } else {
+                    failedProducts.add(row.productName());
+                }
+            }
+            refreshProducts.run();
+            if (failedProducts.isEmpty()) {
+                JOptionPane.showMessageDialog(
+                        adminPage, "Alla " + savedCount + " produkter sparades.");
+            } else {
+                JOptionPane.showMessageDialog(
+                        adminPage,
+                        "Sparade " + savedCount + " produkter. Kunde inte spara: "
+                                + String.join(", ", failedProducts),
+                        "Vissa produkter kunde inte sparas",
+                        JOptionPane.WARNING_MESSAGE
+                );
+            }
+        });
 
         JButton addProductButton = new JButton("Lägg till produkt");
         addProductButton.addActionListener(event -> {
             try {
-                productRepository.save(new Product("Ny produkt", BigDecimal.ZERO, "Mat"));
+                Product newProduct = productRepository.save(
+                        new Product("Ny produkt", BigDecimal.ZERO, "Mat"));
+                ProductEditorRow row = new ProductEditorRow(
+                        newProduct, productRepository, refreshProducts, deletedRow -> {
+                            editorRows.remove(deletedRow);
+                            productEditor.remove(deletedRow);
+                            productEditor.revalidate();
+                            productEditor.repaint();
+                        });
+                editorRows.add(row);
+                productEditor.add(row);
                 refreshProducts.run();
-                productEditor.removeAll();
-                for (Product product : productRepository.findAll()) {
-                    productEditor.add(createProductEditorRow(
-                            product, productRepository, refreshProducts));
-                }
                 productEditor.revalidate();
                 productEditor.repaint();
             } catch (RuntimeException exception) {
                 showError(adminPage, exception);
             }
         });
-        adminPage.add(addProductButton, BorderLayout.SOUTH);
+        JPanel actions = new JPanel(new BorderLayout(8, 8));
+        actions.add(saveAllButton, BorderLayout.WEST);
+        actions.add(addProductButton, BorderLayout.EAST);
+        adminPage.add(actions, BorderLayout.SOUTH);
         return adminPage;
     }
 
-    private static JPanel createProductEditorRow(
-            Product product, ProductRepository repository, Runnable refreshProducts) {
-        JPanel row = new JPanel(new GridLayout(1, 5, 8, 8));
-        JTextField categoryField = new JTextField(product.getCategory());
-        JTextField nameField = new JTextField(product.getName());
-        JTextField priceField = new JTextField(product.getPrice().toPlainString());
-        JButton saveButton = new JButton("Spara");
-        saveButton.addActionListener(event -> {
+    private static final class ProductEditorRow extends JPanel {
+        private final Product product;
+        private final ProductRepository repository;
+        private final Runnable refreshProducts;
+        private final java.util.function.Consumer<ProductEditorRow> removeFromEditor;
+        private final JTextField categoryField;
+        private final JTextField nameField;
+        private final JTextField priceField;
+
+        private ProductEditorRow(
+                Product product,
+                ProductRepository repository,
+                Runnable refreshProducts,
+                java.util.function.Consumer<ProductEditorRow> removeFromEditor) {
+            super(new GridLayout(1, 5, 8, 8));
+            this.product = product;
+            this.repository = repository;
+            this.refreshProducts = refreshProducts;
+            this.removeFromEditor = removeFromEditor;
+            categoryField = new JTextField(product.getCategory());
+            nameField = new JTextField(product.getName());
+            priceField = new JTextField(product.getPrice().toPlainString());
+
+            JButton saveButton = new JButton("Spara");
+            saveButton.addActionListener(event -> save(true));
+            JButton deleteButton = new JButton("Ta bort");
+            deleteButton.addActionListener(event -> delete());
+
+            add(categoryField);
+            add(nameField);
+            add(priceField);
+            add(saveButton);
+            add(deleteButton);
+        }
+
+        private boolean save(boolean showSuccess) {
             try {
-                BigDecimal price = new BigDecimal(priceField.getText().trim());
-                if (price.signum() < 0 || nameField.getText().isBlank()) {
-                    throw new IllegalArgumentException("Ange ett produktnamn och ett pris som inte är negativt.");
+                BigDecimal price = new BigDecimal(priceField.getText().trim().replace(',', '.'));
+                if (price.signum() < 0 || nameField.getText().isBlank()
+                        || categoryField.getText().isBlank()) {
+                    throw new IllegalArgumentException(
+                            "Ange kategori, produktnamn och ett pris som inte är negativt.");
                 }
                 product.setCategory(categoryField.getText());
                 product.setName(nameField.getText().trim());
                 product.setPrice(price);
                 repository.save(product);
                 refreshProducts.run();
-                JOptionPane.showMessageDialog(row, "Produkten sparades.");
+                if (showSuccess) {
+                    JOptionPane.showMessageDialog(this, "Produkten sparades.");
+                }
+                return true;
             } catch (RuntimeException exception) {
-                showError(row, exception);
+                showError(this, exception);
+                return false;
             }
-        });
-        JButton deleteButton = new JButton("Ta bort");
-        deleteButton.addActionListener(event -> {
+        }
+
+        private String productName() {
+            return nameField.getText().isBlank() ? "Produkt " + product.getId()
+                    : nameField.getText();
+        }
+
+        private void delete() {
             int choice = JOptionPane.showConfirmDialog(
-                    row,
+                    this,
                     "Ta bort produkten \"" + product.getName() + "\"?",
                     "Bekräfta borttagning",
                     JOptionPane.YES_NO_OPTION,
@@ -183,22 +264,14 @@ final class CashRegisterWindow {
             if (choice == JOptionPane.YES_OPTION) {
                 try {
                     repository.delete(product);
-                    Container editor = row.getParent();
-                    editor.remove(row);
-                    editor.revalidate();
-                    editor.repaint();
+                    removeFromEditor.accept(this);
                     refreshProducts.run();
                 } catch (RuntimeException exception) {
-                    showError(row, exception);
+                    showError(this, exception);
                 }
             }
-        });
-        row.add(categoryField);
-        row.add(nameField);
-        row.add(priceField);
-        row.add(saveButton);
-        row.add(deleteButton);
-        return row;
+        }
+
     }
 
     private static void addProduct(JPanel products, Product product, OrderPanel order) {
