@@ -22,6 +22,7 @@ public class ResturangKassaApplication {
 
         SwingUtilities.invokeLater(() -> CashRegisterWindow.showWindow(
                 context.getBean(ProductRepository.class),
+                context.getBean(ProductCategoryRepository.class),
                 context.getBean(RestaurantOrderRepository.class),
                 context.getBean(PaymentService.class)
         ));

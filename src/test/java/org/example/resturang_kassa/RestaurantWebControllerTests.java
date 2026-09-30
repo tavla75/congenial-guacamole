@@ -4,10 +4,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -27,5 +31,23 @@ class RestaurantWebControllerTests {
                           "status": "running"
                         }
                         """));
+    }
+
+    @Test
+    @Transactional
+    void categoriesCanBeAddedAndSharedThroughTheApi() throws Exception {
+        mockMvc.perform(post("/api/categories")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Web and desktop"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Web and desktop"));
+
+        mockMvc.perform(get("/api/categories"))
+                .andExpect(status().isOk())
+                .andExpect(content().json("""
+                        ["Mat", "Dryck", "Web and desktop"]
+                        """, false));
     }
 }

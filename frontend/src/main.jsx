@@ -24,13 +24,10 @@ function App() {
   const [order, setOrder] = useState([]);
   const [columns, setColumns] = useState(4);
   const [selectedCategory, setSelectedCategory] = useState('Mat');
+  const [categories, setCategories] = useState(['Mat', 'Dryck']);
   const [message, setMessage] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
-  const categories = useMemo(
-    () => [...new Set(['Mat', 'Dryck', ...products.map(product => product.category || 'Mat')])],
-    [products]
-  );
   const visibleProducts = products.filter(
     product => (product.category || 'Mat') === selectedCategory
   );
@@ -40,8 +37,11 @@ function App() {
   );
 
   useEffect(() => {
-    api('/api/products')
-      .then(setProducts)
+    Promise.all([api('/api/products'), api('/api/categories')])
+      .then(([loadedProducts, loadedCategories]) => {
+        setProducts(loadedProducts);
+        setCategories(loadedCategories);
+      })
       .catch(error => setMessage(error.message));
   }, []);
 
@@ -101,13 +101,36 @@ function App() {
     try {
       const product = await api('/api/products', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Ny produkt', price: 0, category: 'Mat' })
+        body: JSON.stringify({
+          name: 'Ny produkt',
+          price: 0,
+          category: page === 'grid' ? selectedCategory : 'Mat'
+        })
       });
       setProducts(current => [...current, product]);
-      setSelectedCategory('Mat');
+      setSelectedCategory(page === 'grid' ? selectedCategory : 'Mat');
     } catch (error) {
       setMessage(error.message);
     }
+  }
+
+  function addCategory() {
+    const category = window.prompt('Namn på ny flik:')?.trim();
+    if (!category) return;
+    if (categories.some(existing => existing.toLocaleLowerCase() === category.toLocaleLowerCase())) {
+      setMessage('En flik med det namnet finns redan.');
+      return;
+    }
+    api('/api/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name: category })
+    })
+      .then(() => {
+        setCategories(current => [...current, category]);
+        setSelectedCategory(category);
+        setMessage('');
+      })
+      .catch(error => setMessage(error.message));
   }
 
   async function pay() {
@@ -209,7 +232,7 @@ function App() {
           <div className="admin-header">
             <h2>Administrera priser och produkter</h2>
             <button onClick={saveAllProducts} disabled={savingAll || products.length === 0}>
-              {savingAll ? 'Sparar...' : 'Spara alla'}
+              {savingAll ? 'Sparar...' : 'Spara'}
             </button>
           </div>
           {products.map(product => (
@@ -262,6 +285,7 @@ function App() {
                 {category}
               </button>
             ))}
+            <button className="secondary" onClick={addCategory}>+ Lägg till flik</button>
           </nav>
           <div className="workspace">
             <section

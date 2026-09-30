@@ -29,6 +29,7 @@ final class CashRegisterWindow {
 
     static void showWindow(
             ProductRepository productRepository,
+            ProductCategoryRepository categoryRepository,
             RestaurantOrderRepository orderRepository,
             PaymentService paymentService) {
         JFrame window = new JFrame("Resturang kassa");
@@ -41,7 +42,8 @@ final class CashRegisterWindow {
         CardLayout pages = new CardLayout();
         JPanel content = new JPanel(pages);
         content.add(createWelcomePage(pages, content), "welcome");
-        content.add(createGridPage(productRepository, orderRepository, paymentService), "grid");
+        content.add(createGridPage(
+                productRepository, categoryRepository, orderRepository, paymentService), "grid");
 
         window.setContentPane(content);
         window.setVisible(true);
@@ -65,6 +67,7 @@ final class CashRegisterWindow {
 
     private static JPanel createGridPage(
             ProductRepository productRepository,
+            ProductCategoryRepository categoryRepository,
             RestaurantOrderRepository orderRepository,
             PaymentService paymentService) {
         JPanel gridPage = new JPanel(new BorderLayout(16, 16));
@@ -73,15 +76,49 @@ final class CashRegisterWindow {
         OrderPanel order = new OrderPanel(orderRepository, paymentService);
         JTabbedPane categoryTabs = new JTabbedPane();
         Runnable refreshProducts = () -> {
-            refreshCategoryTabs(categoryTabs, productRepository.findAll(), order);
+            refreshCategoryTabs(categoryTabs, categoryRepository, productRepository.findAll(), order);
         };
         refreshProducts.run();
+        JButton addCategoryButton = new JButton("+ Lägg till flik");
+        addCategoryButton.addActionListener(event -> {
+            String name = JOptionPane.showInputDialog(
+                    gridPage, "Namn på ny flik:", "Lägg till flik", JOptionPane.PLAIN_MESSAGE);
+            if (name == null || name.isBlank()) {
+                return;
+            }
+            String categoryName = name.trim();
+            if (categoryRepository.findByNameIgnoreCase(categoryName).isPresent()
+                    || "Mat".equalsIgnoreCase(categoryName)
+                    || "Dryck".equalsIgnoreCase(categoryName)
+                    || productRepository.findAll().stream()
+                    .anyMatch(product -> product.getCategory().equalsIgnoreCase(categoryName))) {
+                JOptionPane.showMessageDialog(
+                        gridPage, "En flik med det namnet finns redan.",
+                        "Fliken finns redan", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            try {
+                categoryRepository.save(new ProductCategory(categoryName));
+                refreshProducts.run();
+                for (int index = 0; index < categoryTabs.getTabCount(); index++) {
+                    if (categoryTabs.getTitleAt(index).equals(categoryName)) {
+                        categoryTabs.setSelectedIndex(index);
+                        break;
+                    }
+                }
+            } catch (RuntimeException exception) {
+                showError(gridPage, exception);
+            }
+        });
+        JPanel categoryPanel = new JPanel(new BorderLayout(8, 8));
+        categoryPanel.add(categoryTabs, BorderLayout.CENTER);
+        categoryPanel.add(addCategoryButton, BorderLayout.SOUTH);
 
         JPanel orderPage = new JPanel(new BorderLayout(16, 16));
         JLabel title = new JLabel("Beställ produkter");
         title.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 22));
         orderPage.add(title, BorderLayout.NORTH);
-        orderPage.add(categoryTabs, BorderLayout.CENTER);
+        orderPage.add(categoryPanel, BorderLayout.CENTER);
         orderPage.add(order, BorderLayout.EAST);
 
         JTabbedPane tabs = new JTabbedPane();
@@ -93,11 +130,16 @@ final class CashRegisterWindow {
     }
 
     private static void refreshCategoryTabs(
-            JTabbedPane tabs, List<Product> products, OrderPanel order) {
+            JTabbedPane tabs,
+            ProductCategoryRepository categoryRepository,
+            List<Product> products,
+            OrderPanel order) {
         tabs.removeAll();
         Map<String, List<Product>> categories = new LinkedHashMap<>();
         categories.put("Mat", new ArrayList<>());
         categories.put("Dryck", new ArrayList<>());
+        categoryRepository.findAll().forEach(category ->
+                categories.putIfAbsent(category.getName(), new ArrayList<>()));
         for (Product product : products) {
             categories.computeIfAbsent(product.getCategory(), key -> new ArrayList<>())
                     .add(product);
